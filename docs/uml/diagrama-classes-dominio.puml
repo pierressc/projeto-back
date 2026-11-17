@@ -1,0 +1,279 @@
+@startuml diagrama-classes-dominio
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam roundcorner 6
+skinparam class {
+    BackgroundColor #FFFFFF
+    BorderColor #1E3A5F
+    HeaderBackgroundColor #1E3A5F
+    FontColor #1A1A1A
+    ArrowColor #1E3A5F
+}
+skinparam enum {
+    BackgroundColor #F4F7FA
+    BorderColor #4A6B82
+}
+
+title Diagrama de Classes de Dominio - Central de Encomendas (Etapa 2)
+
+package "br.com.uniesp.centralencomendas.domain.entity" {
+
+    class Cliente {
+        - id : Long
+        - nome : String
+        - telefone : String
+        - email : String
+        - observacoes : String
+        - dataCadastro : LocalDateTime
+        --
+        + atualizarContato(nome : String, telefone : String, email : String) : void
+        + registrarObservacao(observacoes : String) : void
+        ~ vincularEncomenda(encomenda : Encomenda) : void
+    }
+
+    class Colaborador {
+        - id : Long
+        - nome : String
+        - email : String
+        - setor : SetorColaborador
+        - ativo : boolean
+        --
+        + atualizarDados(nome : String, email : String) : void
+        + alterarSetor(novoSetor : SetorColaborador) : void
+        + ativar() : void
+        + desativar() : void
+        + podeAprovarAlteracaoProducao() : boolean
+        + podeConcluirEntrega() : boolean
+    }
+
+    class AgendaSemana {
+        - id : Long
+        - codigoSemana : String
+        - dataInicio : LocalDate
+        - dataFim : LocalDate
+        - capacidadeMaximaPedidos : int
+        - pedidosReservados : int
+        --
+        + possuiVagaDisponivel() : boolean
+        + calcularVagasRestantes() : int
+        + cobreData(data : LocalDate) : boolean
+        + reservarVaga() : void
+        + liberarVaga() : void
+        + ajustarCapacidadeMaxima(novaCapacidade : int) : void
+        ~ vincularEncomenda(encomenda : Encomenda) : void
+    }
+
+    class Encomenda {
+        - id : Long
+        - codigo : String
+        - canalOrigem : CanalOrigem
+        - status : StatusEncomenda
+        - valorTotal : BigDecimal
+        - valorSinalExigido : BigDecimal
+        - materiaisConferidos : boolean
+        - prazoAlteracaoSemCustoDias : int
+        - observacoesGerais : String
+        - dataPedido : LocalDateTime
+        - dataPrazoPrometido : LocalDate
+        - dataLiberacaoProducao : LocalDateTime
+        - dataConclusaoProducao : LocalDateTime
+        --
+        + adicionarItem(produto : ProdutoCatalogo, quantidade : int, valorUnitario : BigDecimal, personalizacao : String) : ItemEncomenda
+        + atualizarItem(item : ItemEncomenda, novaQuantidade : int, novoValorUnitario : BigDecimal, novaPersonalizacao : String) : void
+        + removerItem(item : ItemEncomenda) : void
+        + adicionarMaterialEspecial(material : MaterialEspecial, quantidadeNecessaria : BigDecimal, observacao : String) : ItemMaterialEncomenda
+        + confirmarCompraMaterial(itemMaterial : ItemMaterialEncomenda) : void
+        + concluirChecagemMateriais() : void
+        + registrarPagamento(valor : BigDecimal, tipo : TipoPagamento, forma : FormaPagamento, responsavel : Colaborador, observacao : String) : Pagamento
+        + estornarPagamento(pagamento : Pagamento, motivo : String) : void
+        + liberarParaProducao() : void
+        + solicitarAlteracao(descricaoMudanca : String, custoAdicionalEstimado : BigDecimal, solicitante : Colaborador, dataSolicitacao : LocalDate) : SolicitacaoAlteracao
+        + aprovarSolicitacaoAlteracao(solicitacao : SolicitacaoAlteracao, avaliadorProducao : Colaborador, custoExtraConfirmado : BigDecimal, observacao : String) : void
+        + recusarSolicitacaoAlteracao(solicitacao : SolicitacaoAlteracao, avaliadorProducao : Colaborador, motivo : String) : void
+        + marcarComoPronto() : void
+        + concluirEntrega(responsavelEntrega : Colaborador) : void
+        + cancelar(motivo : String) : void
+        + calcularTotalPago() : BigDecimal
+        + calcularSaldoAReceber() : BigDecimal
+        + sinalEstaPago() : boolean
+        + todosMateriaisComprados() : boolean
+        + gerarResumoWhatsApp() : String
+    }
+
+    class ItemEncomenda {
+        - id : Long
+        - quantidade : int
+        - valorUnitario : BigDecimal
+        - personalizacao : String
+        --
+        ~ atualizarDetalhes(novaQuantidade : int, novoValorUnitario : BigDecimal, novaPersonalizacao : String) : void
+        + calcularSubtotal() : BigDecimal
+    }
+
+    class ProdutoCatalogo {
+        - id : Long
+        - nome : String
+        - descricao : String
+        - categoria : CategoriaProduto
+        - precoBase : BigDecimal
+        - pesoCapacidade : int
+        - ativo : boolean
+        --
+        + atualizarCatalogo(nome : String, descricao : String, categoria : CategoriaProduto) : void
+        + reajustarPrecoBase(novoPrecoBase : BigDecimal) : void
+        + alterarPesoCapacidade(novoPeso : int) : void
+        + associarMaterialEspecial(material : MaterialEspecial) : void
+        + desvincularMaterialEspecial(material : MaterialEspecial) : void
+        + ativar() : void
+        + desativar() : void
+    }
+
+    class MaterialEspecial {
+        - id : Long
+        - nome : String
+        - descricao : String
+        - unidadeMedida : String
+        - fornecedorSugerido : String
+        - ativo : boolean
+        --
+        + atualizarDados(nome : String, descricao : String, unidadeMedida : String, fornecedorSugerido : String) : void
+        + ativar() : void
+        + desativar() : void
+    }
+
+    class ItemMaterialEncomenda {
+        - id : Long
+        - quantidadeNecessaria : BigDecimal
+        - comprado : boolean
+        - dataConfirmacaoCompra : LocalDateTime
+        - observacao : String
+        --
+        + confirmarCompra() : void
+        + estornarConfirmacao() : void
+        + registrarObservacao(observacao : String) : void
+    }
+
+    class Pagamento {
+        - id : Long
+        - valor : BigDecimal
+        - tipo : TipoPagamento
+        - forma : FormaPagamento
+        - status : StatusPagamento
+        - dataPagamento : LocalDateTime
+        - observacao : String
+        --
+        ~ estornar(motivo : String) : void
+        + isConfirmado() : boolean
+    }
+
+    class SolicitacaoAlteracao {
+        - id : Long
+        - descricaoMudanca : String
+        - custoAdicional : BigDecimal
+        - status : StatusSolicitacaoAlteracao
+        - dentroDoPrazoSemCusto : boolean
+        - dataSolicitacao : LocalDateTime
+        - dataResposta : LocalDateTime
+        - motivoResposta : String
+        --
+        ~ aprovar(avaliador : Colaborador, custoExtraConfirmado : BigDecimal, motivoResposta : String) : void
+        ~ recusar(avaliador : Colaborador, motivoResposta : String) : void
+        + isPendente() : boolean
+    }
+
+    class Entrega {
+        - id : Long
+        - tipo : TipoEntrega
+        - enderecoEntrega : String
+        - dataPrevista : LocalDate
+        - dataRealizada : LocalDateTime
+        - concluida : boolean
+        - observacoes : String
+        --
+        + reagendar(novaDataPrevista : LocalDate) : void
+        + alterarModalidade(novoTipo : TipoEntrega, novoEndereco : String) : void
+        + registrarObservacao(observacoes : String) : void
+        ~ registrarConclusao(responsavel : Colaborador) : void
+    }
+}
+
+package "br.com.uniesp.centralencomendas.domain.enums" {
+    enum CanalOrigem {
+        WHATSAPP
+        INSTAGRAM
+        PRESENCIAL
+    }
+    enum StatusEncomenda {
+        AGUARDANDO_SINAL_MATERIAL
+        EM_PRODUCAO
+        PRONTO
+        ENTREGUE
+        CANCELADO
+    }
+    enum SetorColaborador {
+        ATENDIMENTO
+        PRODUCAO
+        ADMINISTRACAO
+        ENTREGA
+    }
+    enum CategoriaProduto {
+        ANIVERSARIO
+        CASAMENTO
+        EVENTO_CORPORATIVO
+        COMEMORACAO
+        OUTRO
+    }
+    enum TipoPagamento {
+        SINAL
+        PARCIAL
+        SALDO_FINAL
+        ADICIONAL_ALTERACAO
+    }
+    enum FormaPagamento {
+        PIX
+        CARTAO_CREDITO
+        CARTAO_DEBITO
+        DINHEIRO
+        TRANSFERENCIA
+    }
+    enum StatusPagamento {
+        CONFIRMADO
+        ESTORNADO
+    }
+    enum StatusSolicitacaoAlteracao {
+        PENDENTE
+        APROVADA
+        RECUSADA
+    }
+    enum TipoEntrega {
+        RETIRADA_LOJA
+        ENTREGA_DOMICILIO
+    }
+}
+
+' Relacionamentos JPA e multiplicidades
+Cliente "1" -- "0..*" Encomenda : realiza >
+AgendaSemana "1" -- "0..*" Encomenda : reserva vaga >
+Encomenda "0..*" --> "1" Colaborador : atendente
+
+Encomenda "1" *-- "0..*" ItemEncomenda : compoe
+ItemEncomenda "0..*" --> "1" ProdutoCatalogo : referencia
+
+ProdutoCatalogo "0..*" -- "0..*" MaterialEspecial : utiliza >
+
+Encomenda "1" *-- "0..*" ItemMaterialEncomenda : exige checagem
+ItemMaterialEncomenda "0..*" --> "1" MaterialEspecial : referencia
+
+Encomenda "1" *-- "0..*" Pagamento : registra
+Pagamento "0..*" --> "1" Colaborador : registradoPor
+
+Encomenda "1" *-- "0..*" SolicitacaoAlteracao : controla mudancas
+SolicitacaoAlteracao "0..*" --> "1" Colaborador : solicitante
+SolicitacaoAlteracao "0..*" --> "0..1" Colaborador : avaliadorProducao
+
+Encomenda "1" *-- "1" Entrega : possui
+Entrega "0..*" --> "0..1" Colaborador : responsavelEntrega
+
+@enduml
