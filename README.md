@@ -59,32 +59,29 @@ O projeto adota uma **Arquitetura em Camadas** tradicional do ecossistema Spring
 
 ---
 
-## 3. Organização do Código
+## 3. Organização do Código (Pacotes por Entidade + Arquitetura em Camadas)
+
+Cada uma das 11 entidades do domínio possui seu próprio pacote modular contendo as camadas `entity`, `repository`, `dto`, `service` e `controller`, apoiadas pelo pacote `shared` (enums, exceções, validações e tratamento global de erros HTTP):
 
 ```text
 src/main/java/br/com/uniesp/centralencomendas/
 ├── CentralEncomendasApplication.java        # Ponto de entrada Spring Boot
-├── controller/                              # (Etapa 3) Camada REST: endpoints HTTP e validação de entrada
-├── dto/                                     # (Etapa 3) Contratos de entrada/saída da API
-├── service/                                 # (Etapa 3) Orquestração de casos de uso e limites transacionais
-├── repository/                              # (Etapa 3) Interfaces Spring Data JPA para acesso ao MySQL
-└── domain/                                  # (Etapa 2 - Implementado) Núcleo de domínio rico e mapeamento JPA
-    ├── entity/                              # Entidades JPA com encapsulamento e métodos modificadores de estado
-    │   ├── AgendaSemana.java
-    │   ├── Cliente.java
-    │   ├── Colaborador.java
-    │   ├── Encomenda.java                   # Raiz de agregado principal
-    │   ├── Entrega.java
-    │   ├── ItemEncomenda.java
-    │   ├── ItemMaterialEncomenda.java
-    │   ├── MaterialEspecial.java
-    │   ├── Pagamento.java
-    │   ├── ProdutoCatalogo.java
-    │   ├── SolicitacaoAlteracao.java
-    │   └── ValidacaoDominio.java            # Helper interno de validação de invariantes
-    ├── enums/                               # Enumerações de estados, setores, canais e modalidades
-    └── exception/
-        └── RegraNegocioException.java       # Exceção semântica para violações das regras/travas
+├── shared/                                  # Recursos compartilhados entre módulos
+│   ├── enums/                               # Enumerações de domínio (status, setores, canais, etc.)
+│   ├── exception/                           # RegraNegocioException e RecursoNaoEncontradoException
+│   ├── validation/                          # ValidacaoDominio (invariantes de domínio)
+│   └── web/                                 # GlobalExceptionHandler e ErroResposta
+├── agendasemana/                            # {controller, dto, entity, repository, service}
+├── cliente/                                 # {controller, dto, entity, repository, service}
+├── colaborador/                             # {controller, dto, entity, repository, service}
+├── encomenda/                               # {controller, dto, entity, repository, service}
+├── entrega/                                 # {controller, dto, entity, repository, service}
+├── itemencomenda/                           # {controller, dto, entity, repository, service}
+├── itemmaterialencomenda/                   # {controller, dto, entity, repository, service}
+├── materialespecial/                        # {controller, dto, entity, repository, service}
+├── pagamento/                               # {controller, dto, entity, repository, service}
+├── produtocatalogo/                         # {controller, dto, entity, repository, service}
+└── solicitacaoalteracao/                    # {controller, dto, entity, repository, service}
 ```
 
 ---
@@ -144,10 +141,12 @@ mvn spring-boot:run
 
 ---
 
-## 6. Equipe
+## 6. Equipe e Divisão das Features (Etapa 3)
 
-* **Pierre Simon**
-* **Kewy Huang**
-* **Renan Mendes**
-* **Caio Augusto**
-* **Wagner**
+| Integrante | Branch | Feature / Responsabilidade |
+|---|---|---|
+| **Wagner** | `feature/cadastros-base` | Cadastros base (`Cliente`, `Colaborador`, `ProdutoCatalogo`, `MaterialEspecial`) |
+| **Pierre Simon** | `feature/cadastro-encomendas` | Fluxo principal de encomendas, itens, materiais especiais, Trava 01/02 e resumo WhatsApp (`Encomenda`, `ItemEncomenda`, `ItemMaterialEncomenda`) |
+| **Kewy Huang** | `feature/consulta-pedidos` | Visão de agenda semanal (`AgendaSemana`) e painel/consultas rápidas e calendário de encomendas (`EncomendaConsulta`) |
+| **Renan Mendes** | `feature/controle-pagamentos` | Lançamento de sinal/parcelas/saldo final, estorno e resumo financeiro (`Pagamento`) |
+| **Caio Augusto** | `feature/alteracoes-e-entregas` | Fluxo de alterações em produção - Trava 03 (`SolicitacaoAlteracao`), conclusão de produção e entrega bloqueada por saldo - Trava 04 (`Entrega`) |
