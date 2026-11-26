@@ -1,6 +1,5 @@
 package br.com.uniesp.centralencomendas.cliente.service;
 
-import br.com.uniesp.centralencomendas.cliente.dto.ClienteObservacaoRequest;
 import br.com.uniesp.centralencomendas.cliente.dto.ClienteRequest;
 import br.com.uniesp.centralencomendas.cliente.dto.ClienteResponse;
 import br.com.uniesp.centralencomendas.cliente.entity.Cliente;
@@ -27,11 +26,8 @@ public class ClienteService {
     }
 
     @Transactional(readOnly = true)
-    public List<ClienteResponse> listar(String nome) {
-        List<Cliente> clientes = (nome == null || nome.isBlank())
-                ? clienteRepository.findAll()
-                : clienteRepository.findByNomeContainingIgnoreCase(nome.trim());
-        return clientes.stream().map(ClienteResponse::from).toList();
+    public List<ClienteResponse> listar() {
+        return clienteRepository.findAll().stream().map(ClienteResponse::from).toList();
     }
 
     @Transactional(readOnly = true)
@@ -40,24 +36,15 @@ public class ClienteService {
     }
 
     @Transactional
-    public ClienteResponse atualizarContato(Long id, ClienteRequest request) {
+    public ClienteResponse atualizar(Long id, ClienteRequest request) {
         Cliente cliente = buscarEntidade(id);
         cliente.atualizarContato(request.nome(), request.telefone(), request.email());
-        if (request.observacoes() != null) {
-            cliente.registrarObservacao(request.observacoes());
-        }
+        cliente.atualizarObservacoes(request.observacoes());
         return ClienteResponse.from(clienteRepository.save(cliente));
     }
 
-    @Transactional
-    public ClienteResponse registrarObservacao(Long id, ClienteObservacaoRequest request) {
-        Cliente cliente = buscarEntidade(id);
-        cliente.registrarObservacao(request.observacoes());
-        return ClienteResponse.from(clienteRepository.save(cliente));
-    }
-
-    private Cliente buscarEntidade(Long id) {
+    public Cliente buscarEntidade(Long id) {
         return clienteRepository.findById(id)
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Cliente nao encontrado com id " + id + "."));
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Cliente nao encontrado: " + id));
     }
 }

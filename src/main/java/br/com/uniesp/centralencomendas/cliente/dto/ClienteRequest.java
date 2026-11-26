@@ -8,6 +8,6 @@ public record ClienteRequest(
         @NotBlank @Size(max = 120) String nome,
         @NotBlank @Size(max = 25) String telefone,
         @Email @Size(max = 120) String email,
-        @Size(max = 500) String observacoes
+        @Size(max = 400) String observacoes
 ) {
 }

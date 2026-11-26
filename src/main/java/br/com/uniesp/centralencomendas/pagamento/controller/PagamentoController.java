@@ -1,19 +1,16 @@
 package br.com.uniesp.centralencomendas.pagamento.controller;
 
-import br.com.uniesp.centralencomendas.pagamento.dto.EstornarPagamentoRequest;
 import br.com.uniesp.centralencomendas.pagamento.dto.PagamentoResponse;
 import br.com.uniesp.centralencomendas.pagamento.dto.RegistrarPagamentoRequest;
-import br.com.uniesp.centralencomendas.pagamento.dto.ResumoFinanceiroResponse;
 import br.com.uniesp.centralencomendas.pagamento.service.PagamentoService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -29,29 +26,16 @@ public class PagamentoController {
     }
 
     @PostMapping
-    public ResponseEntity<PagamentoResponse> registrar(
+    @ResponseStatus(HttpStatus.CREATED)
+    public PagamentoResponse registrar(
             @PathVariable Long encomendaId,
             @Valid @RequestBody RegistrarPagamentoRequest request
     ) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(pagamentoService.registrar(encomendaId, request));
-    }
-
-    @PatchMapping("/{pagamentoId}/estornar")
-    public PagamentoResponse estornar(
-            @PathVariable Long encomendaId,
-            @PathVariable Long pagamentoId,
-            @Valid @RequestBody EstornarPagamentoRequest request
-    ) {
-        return pagamentoService.estornar(encomendaId, pagamentoId, request);
+        return pagamentoService.registrar(encomendaId, request);
     }
 
     @GetMapping
     public List<PagamentoResponse> listar(@PathVariable Long encomendaId) {
-        return pagamentoService.listar(encomendaId);
-    }
-
-    @GetMapping("/resumo")
-    public ResumoFinanceiroResponse consultarResumoFinanceiro(@PathVariable Long encomendaId) {
-        return pagamentoService.consultarResumoFinanceiro(encomendaId);
+        return pagamentoService.listarPorEncomenda(encomendaId);
     }
 }
