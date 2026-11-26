@@ -6,17 +6,12 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 
 public interface EncomendaRepository extends JpaRepository<Encomenda, Long> {
 
-    Optional<Encomenda> findByCodigoIgnoreCase(String codigo);
+    List<Encomenda> findAllByOrderByDataPrazoEntregaAsc();
 
-    List<Encomenda> findByStatusOrderByDataPrazoPrometidoAsc(StatusEncomenda status);
+    List<Encomenda> findByStatusOrderByDataPrazoEntregaAsc(StatusEncomenda status);
 
-    List<Encomenda> findByClienteIdOrderByDataPedidoDesc(Long clienteId);
-
-    List<Encomenda> findByAgendaSemanaIdOrderByDataPrazoPrometidoAsc(Long agendaSemanaId);
-
-    List<Encomenda> findByDataPrazoPrometidoBetweenOrderByDataPrazoPrometidoAsc(LocalDate inicio, LocalDate fim);
+    List<Encomenda> findByDataPrazoEntregaBetweenOrderByDataPrazoEntregaAsc(LocalDate inicio, LocalDate fim);
 }

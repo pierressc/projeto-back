@@ -9,7 +9,6 @@ import java.time.LocalDateTime;
 public record SolicitacaoAlteracaoResponse(
         Long id,
         Long encomendaId,
-        String codigoEncomenda,
         Long solicitanteId,
         String solicitanteNome,
         Long avaliadorId,
@@ -17,29 +16,24 @@ public record SolicitacaoAlteracaoResponse(
         String descricaoMudanca,
         BigDecimal custoAdicional,
         StatusSolicitacaoAlteracao status,
-        boolean dentroDoPrazoSemCusto,
         LocalDateTime dataSolicitacao,
         LocalDateTime dataResposta,
-        String motivoResposta,
-        BigDecimal valorTotalEncomendaAtualizado
+        String motivoResposta
 ) {
-    public static SolicitacaoAlteracaoResponse from(SolicitacaoAlteracao entity) {
+    public static SolicitacaoAlteracaoResponse from(SolicitacaoAlteracao solicitacao) {
         return new SolicitacaoAlteracaoResponse(
-                entity.getId(),
-                entity.getEncomenda().getId(),
-                entity.getEncomenda().getCodigo(),
-                entity.getSolicitante().getId(),
-                entity.getSolicitante().getNome(),
-                entity.getAvaliadorProducao() != null ? entity.getAvaliadorProducao().getId() : null,
-                entity.getAvaliadorProducao() != null ? entity.getAvaliadorProducao().getNome() : null,
-                entity.getDescricaoMudanca(),
-                entity.getCustoAdicional(),
-                entity.getStatus(),
-                entity.isDentroDoPrazoSemCusto(),
-                entity.getDataSolicitacao(),
-                entity.getDataResposta(),
-                entity.getMotivoResposta(),
-                entity.getEncomenda().getValorTotal()
+                solicitacao.getId(),
+                solicitacao.getEncomenda().getId(),
+                solicitacao.getSolicitante().getId(),
+                solicitacao.getSolicitante().getNome(),
+                solicitacao.getAvaliador() == null ? null : solicitacao.getAvaliador().getId(),
+                solicitacao.getAvaliador() == null ? null : solicitacao.getAvaliador().getNome(),
+                solicitacao.getDescricaoMudanca(),
+                solicitacao.getCustoAdicional(),
+                solicitacao.getStatus(),
+                solicitacao.getDataSolicitacao(),
+                solicitacao.getDataResposta(),
+                solicitacao.getMotivoResposta()
         );
     }
 }

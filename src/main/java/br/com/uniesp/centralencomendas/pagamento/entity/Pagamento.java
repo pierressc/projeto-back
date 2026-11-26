@@ -3,10 +3,7 @@ package br.com.uniesp.centralencomendas.pagamento.entity;
 import br.com.uniesp.centralencomendas.colaborador.entity.Colaborador;
 import br.com.uniesp.centralencomendas.encomenda.entity.Encomenda;
 import br.com.uniesp.centralencomendas.shared.enums.FormaPagamento;
-import br.com.uniesp.centralencomendas.shared.enums.StatusPagamento;
-import br.com.uniesp.centralencomendas.shared.enums.TipoPagamento;
 import br.com.uniesp.centralencomendas.shared.exception.RegraNegocioException;
-import br.com.uniesp.centralencomendas.shared.validation.ValidacaoDominio;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -23,9 +20,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-/**
- * Registro financeiro parcial ou total vinculado a uma encomenda (Trava 04).
- */
 @Entity
 @Table(name = "pagamentos")
 public class Pagamento {
@@ -47,15 +41,7 @@ public class Pagamento {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 25)
-    private TipoPagamento tipo;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 25)
     private FormaPagamento forma;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private StatusPagamento status;
 
     @Column(name = "data_pagamento", nullable = false, updatable = false)
     private LocalDateTime dataPagamento;
@@ -70,33 +56,21 @@ public class Pagamento {
             Encomenda encomenda,
             Colaborador registradoPor,
             BigDecimal valor,
-            TipoPagamento tipo,
             FormaPagamento forma,
             String observacao
     ) {
-        this.encomenda = ValidacaoDominio.naoNulo(encomenda, "encomenda");
-        this.registradoPor = ValidacaoDominio.naoNulo(registradoPor, "registradoPor");
-        this.valor = ValidacaoDominio.valorPositivo(valor, "valor");
-        this.tipo = ValidacaoDominio.naoNulo(tipo, "tipo");
-        this.forma = ValidacaoDominio.naoNulo(forma, "forma");
-        this.observacao = ValidacaoDominio.textoOpcional(observacao);
-        this.status = StatusPagamento.CONFIRMADO;
-        this.dataPagamento = LocalDateTime.now();
-    }
-
-    public void estornar(String motivo) {
-        if (this.status == StatusPagamento.ESTORNADO) {
-            throw new RegraNegocioException("Este pagamento ja foi estornado.");
+        if (encomenda == null || registradoPor == null || forma == null) {
+            throw new RegraNegocioException("Encomenda, colaborador responsavel e forma de pagamento sao obrigatorios.");
         }
-        String motivoValidado = ValidacaoDominio.textoObrigatorio(motivo, "motivo");
-        this.status = StatusPagamento.ESTORNADO;
-        this.observacao = (this.observacao == null || this.observacao.isBlank())
-                ? "Estornado: " + motivoValidado
-                : this.observacao + " | Estornado: " + motivoValidado;
-    }
-
-    public boolean isConfirmado() {
-        return this.status == StatusPagamento.CONFIRMADO;
+        if (valor == null || valor.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RegraNegocioException("O valor do pagamento deve ser maior que zero.");
+        }
+        this.encomenda = encomenda;
+        this.registradoPor = registradoPor;
+        this.valor = valor;
+        this.forma = forma;
+        this.observacao = observacao == null ? null : observacao.trim();
+        this.dataPagamento = LocalDateTime.now();
     }
 
     public Long getId() {
@@ -115,16 +89,8 @@ public class Pagamento {
         return valor;
     }
 
-    public TipoPagamento getTipo() {
-        return tipo;
-    }
-
     public FormaPagamento getForma() {
         return forma;
-    }
-
-    public StatusPagamento getStatus() {
-        return status;
     }
 
     public LocalDateTime getDataPagamento() {
