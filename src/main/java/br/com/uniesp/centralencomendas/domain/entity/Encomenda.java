@@ -5,7 +5,6 @@ import br.com.uniesp.centralencomendas.domain.enums.FormaPagamento;
 import br.com.uniesp.centralencomendas.domain.enums.StatusEncomenda;
 import br.com.uniesp.centralencomendas.domain.enums.StatusSolicitacaoAlteracao;
 import br.com.uniesp.centralencomendas.domain.enums.TipoEntrega;
-import br.com.uniesp.centralencomendas.domain.enums.TipoPagamento;
 import br.com.uniesp.centralencomendas.domain.exception.RegraNegocioException;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -19,31 +18,19 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
-import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
-import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 
-/**
- * Raiz de agregado principal do sistema. Centraliza itens, materiais especiais,
- * pagamentos parciais, alteracoes protegidas e entrega, aplicando as 4 Travas de Seguranca.
- */
 @Entity
 @Table(name = "encomendas")
 public class Encomenda {
-
-    private static final DateTimeFormatter FORMATO_DATA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-    private static final Locale LOCALE_PT_BR = Locale.of("pt", "BR");
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -60,10 +47,6 @@ public class Encomenda {
     @JoinColumn(name = "atendente_id", nullable = false)
     private Colaborador atendente;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "agenda_semana_id", nullable = false)
-    private AgendaSemana agendaSemana;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "canal_origem", nullable = false, length = 20)
     private CanalOrigem canalOrigem;
@@ -72,47 +55,42 @@ public class Encomenda {
     @Column(nullable = false, length = 35)
     private StatusEncomenda status;
 
+    @Column(name = "data_pedido", nullable = false, updatable = false)
+    private LocalDateTime dataPedido;
+
+    @Column(name = "data_prazo_entrega", nullable = false)
+    private LocalDate dataPrazoEntrega;
+
+    @Column(name = "data_entrega_realizada")
+    private LocalDateTime dataEntregaRealizada;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo_entrega", nullable = false, length = 25)
+    private TipoEntrega tipoEntrega;
+
+    @Column(name = "endereco_entrega", length = 300)
+    private String enderecoEntrega;
+
     @Column(name = "valor_total", nullable = false, precision = 10, scale = 2)
     private BigDecimal valorTotal;
 
     @Column(name = "valor_sinal_exigido", nullable = false, precision = 10, scale = 2)
     private BigDecimal valorSinalExigido;
 
-    @Column(name = "materiais_conferidos", nullable = false)
-    private boolean materiaisConferidos;
-
-    @Column(name = "prazo_alteracao_sem_custo_dias", nullable = false)
-    private int prazoAlteracaoSemCustoDias;
-
-    @Column(name = "observacoes_gerais", length = 1000)
-    private String observacoesGerais;
-
-    @Column(name = "data_pedido", nullable = false, updatable = false)
-    private LocalDateTime dataPedido;
-
-    @Column(name = "data_prazo_prometido", nullable = false)
-    private LocalDate dataPrazoPrometido;
-
-    @Column(name = "data_liberacao_producao")
-    private LocalDateTime dataLiberacaoProducao;
-
-    @Column(name = "data_conclusao_producao")
-    private LocalDateTime dataConclusaoProducao;
+    @Column(length = 600)
+    private String observacoes;
 
     @OneToMany(mappedBy = "encomenda", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ItemEncomenda> itens = new ArrayList<>();
 
     @OneToMany(mappedBy = "encomenda", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ItemMaterialEncomenda> materiaisEspeciais = new ArrayList<>();
+    private List<MaterialEncomenda> materiais = new ArrayList<>();
 
     @OneToMany(mappedBy = "encomenda", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Pagamento> pagamentos = new ArrayList<>();
 
     @OneToMany(mappedBy = "encomenda", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SolicitacaoAlteracao> solicitacoesAlteracao = new ArrayList<>();
-
-    @OneToOne(mappedBy = "encomenda", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Entrega entrega;
 
     protected Encomenda() {
     }
@@ -121,112 +99,85 @@ public class Encomenda {
             String codigo,
             Cliente cliente,
             Colaborador atendente,
-            AgendaSemana agendaSemana,
             CanalOrigem canalOrigem,
-            LocalDate dataPrazoPrometido,
-            BigDecimal valorSinalExigido,
-            int prazoAlteracaoSemCustoDias,
+            LocalDate dataPrazoEntrega,
             TipoEntrega tipoEntrega,
             String enderecoEntrega,
-            String observacoesGerais
+            BigDecimal valorSinalExigido,
+            String observacoes
     ) {
-        this.codigo = ValidacaoDominio.textoObrigatorio(codigo, "codigo");
-        this.cliente = ValidacaoDominio.naoNulo(cliente, "cliente");
-        this.atendente = ValidacaoDominio.naoNulo(atendente, "atendente");
-        if (!atendente.isAtivo()) {
-            throw new RegraNegocioException("Colaborador atendente precisa estar ativo.");
+        if (codigo == null || codigo.isBlank()) {
+            throw new RegraNegocioException("O codigo da encomenda e obrigatorio.");
         }
-        this.agendaSemana = ValidacaoDominio.naoNulo(agendaSemana, "agendaSemana");
-        this.canalOrigem = ValidacaoDominio.naoNulo(canalOrigem, "canalOrigem");
-        this.dataPrazoPrometido = ValidacaoDominio.naoNulo(dataPrazoPrometido, "dataPrazoPrometido");
-        if (!agendaSemana.cobreData(dataPrazoPrometido)) {
-            throw new RegraNegocioException(
-                    "A data prometida (" + dataPrazoPrometido + ") nao pertence a semana '" + agendaSemana.getCodigoSemana() + "'."
-            );
+        if (cliente == null || atendente == null || canalOrigem == null || dataPrazoEntrega == null || tipoEntrega == null) {
+            throw new RegraNegocioException("Dados obrigatorios da encomenda nao informados.");
         }
-        this.valorSinalExigido = ValidacaoDominio.valorNaoNegativo(valorSinalExigido, "valorSinalExigido");
-        if (prazoAlteracaoSemCustoDias < 0) {
-            throw new RegraNegocioException("O prazo de alteracao sem custo nao pode ser negativo.");
+        if (tipoEntrega == TipoEntrega.ENTREGA_DOMICILIO && (enderecoEntrega == null || enderecoEntrega.isBlank())) {
+            throw new RegraNegocioException("O endereco e obrigatorio para entregas em domicilio.");
         }
-        this.prazoAlteracaoSemCustoDias = prazoAlteracaoSemCustoDias;
-        this.observacoesGerais = ValidacaoDominio.textoOpcional(observacoesGerais);
+        if (valorSinalExigido == null || valorSinalExigido.compareTo(BigDecimal.ZERO) < 0) {
+            throw new RegraNegocioException("O valor de sinal exigido nao pode ser negativo.");
+        }
 
-        // Cria e valida a entrega antes de reservar vaga na agenda (Trava 01).
-        Entrega novaEntrega = new Entrega(this, tipoEntrega, enderecoEntrega, dataPrazoPrometido);
-        agendaSemana.reservarVaga();
-
-        this.entrega = novaEntrega;
+        this.codigo = codigo.trim();
+        this.cliente = cliente;
+        this.atendente = atendente;
+        this.canalOrigem = canalOrigem;
+        this.dataPrazoEntrega = dataPrazoEntrega;
+        this.tipoEntrega = tipoEntrega;
+        this.enderecoEntrega = enderecoEntrega == null ? null : enderecoEntrega.trim();
+        this.valorSinalExigido = valorSinalExigido;
+        this.observacoes = observacoes == null ? null : observacoes.trim();
         this.status = StatusEncomenda.AGUARDANDO_SINAL_MATERIAL;
         this.valorTotal = BigDecimal.ZERO;
-        this.materiaisConferidos = false;
         this.dataPedido = LocalDateTime.now();
 
         cliente.vincularEncomenda(this);
-        agendaSemana.vincularEncomenda(this);
     }
 
-    public ItemEncomenda adicionarItem(ProdutoCatalogo produto, int quantidade, BigDecimal valorUnitario, String personalizacao) {
-        exigirEdicaoDiretaPermitida("adicionar itens");
-        ItemEncomenda item = new ItemEncomenda(this, produto, quantidade, valorUnitario, personalizacao);
+    public ItemEncomenda adicionarItem(
+            String descricaoProduto,
+            String personalizacao,
+            int quantidade,
+            BigDecimal valorUnitario
+    ) {
+        if (this.status != StatusEncomenda.AGUARDANDO_SINAL_MATERIAL) {
+            throw new RegraNegocioException("Nao e permitido alterar itens diretamente apos iniciar a producao.");
+        }
+        ItemEncomenda item = new ItemEncomenda(this, descricaoProduto, personalizacao, quantidade, valorUnitario);
         this.itens.add(item);
         recalcularValorTotal();
         return item;
     }
 
-    public void atualizarItem(ItemEncomenda item, int novaQuantidade, BigDecimal novoValorUnitario, String novaPersonalizacao) {
-        exigirEdicaoDiretaPermitida("atualizar itens");
-        ValidacaoDominio.naoNulo(item, "item");
-        if (!this.itens.contains(item)) {
-            throw new RegraNegocioException("O item informado nao pertence a esta encomenda.");
-        }
-        item.atualizarDetalhes(novaQuantidade, novoValorUnitario, novaPersonalizacao);
-        recalcularValorTotal();
-    }
-
     public void removerItem(ItemEncomenda item) {
-        exigirEdicaoDiretaPermitida("remover itens");
-        ValidacaoDominio.naoNulo(item, "item");
+        if (this.status != StatusEncomenda.AGUARDANDO_SINAL_MATERIAL) {
+            throw new RegraNegocioException("Nao e permitido remover itens diretamente apos iniciar a producao.");
+        }
         if (!this.itens.remove(item)) {
-            throw new RegraNegocioException("O item informado nao pertence a esta encomenda.");
+            throw new RegraNegocioException("Item nao encontrado nesta encomenda.");
         }
         recalcularValorTotal();
     }
 
-    public ItemMaterialEncomenda adicionarMaterialEspecial(
-            MaterialEspecial material,
-            BigDecimal quantidadeNecessaria,
-            String observacao
-    ) {
+    public MaterialEncomenda adicionarMaterial(String nome, String quantidade, String observacao) {
         if (this.status == StatusEncomenda.ENTREGUE || this.status == StatusEncomenda.CANCELADO) {
-            throw new RegraNegocioException("Nao e possivel adicionar materiais a uma encomenda finalizada ou cancelada.");
+            throw new RegraNegocioException("Nao e possivel adicionar materiais em encomenda finalizada ou cancelada.");
         }
-        ItemMaterialEncomenda itemMaterial = new ItemMaterialEncomenda(this, material, quantidadeNecessaria, observacao);
-        this.materiaisEspeciais.add(itemMaterial);
-        this.materiaisConferidos = false;
-        return itemMaterial;
+        MaterialEncomenda material = new MaterialEncomenda(this, nome, quantidade, observacao);
+        this.materiais.add(material);
+        return material;
     }
 
-    public void confirmarCompraMaterial(ItemMaterialEncomenda itemMaterial) {
-        ValidacaoDominio.naoNulo(itemMaterial, "itemMaterial");
-        if (!this.materiaisEspeciais.contains(itemMaterial)) {
-            throw new RegraNegocioException("O material informado nao pertence a esta encomenda.");
+    public void confirmarCompraMaterial(MaterialEncomenda material) {
+        if (!this.materiais.contains(material)) {
+            throw new RegraNegocioException("Material nao encontrado nesta encomenda.");
         }
-        itemMaterial.confirmarCompra();
-    }
-
-    public void concluirChecagemMateriais() {
-        if (this.status == StatusEncomenda.CANCELADO || this.status == StatusEncomenda.ENTREGUE) {
-            throw new RegraNegocioException("Nao e possivel concluir checagem de materiais para encomenda cancelada ou entregue.");
-        }
-        if (!todosMateriaisComprados()) {
-            throw new RegraNegocioException("Existem materiais especiais pendentes de compra nesta encomenda.");
-        }
-        this.materiaisConferidos = true;
+        material.marcarComoComprado();
     }
 
     public Pagamento registrarPagamento(
             BigDecimal valor,
-            TipoPagamento tipo,
             FormaPagamento forma,
             Colaborador responsavel,
             String observacao
@@ -234,170 +185,104 @@ public class Encomenda {
         if (this.status == StatusEncomenda.CANCELADO) {
             throw new RegraNegocioException("Nao e possivel registrar pagamento em encomenda cancelada.");
         }
-        ValidacaoDominio.naoNulo(responsavel, "responsavel");
-        if (!responsavel.isAtivo()) {
-            throw new RegraNegocioException("Colaborador responsavel pelo pagamento precisa estar ativo.");
+        if (valor == null || valor.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RegraNegocioException("O valor do pagamento deve ser maior que zero.");
         }
-        ValidacaoDominio.valorPositivo(valor, "valor");
-
-        BigDecimal saldoRestante = calcularSaldoAReceber();
-        if (valor.compareTo(saldoRestante) > 0) {
-            throw new RegraNegocioException(
-                    "O valor do pagamento (" + valor + ") excede o saldo a receber (" + saldoRestante + ")."
-            );
+        BigDecimal saldo = calcularSaldoAReceber();
+        if (valor.compareTo(saldo) > 0) {
+            throw new RegraNegocioException("O valor informado excede o saldo a receber (" + saldo + ").");
         }
-
-        Pagamento pagamento = new Pagamento(this, responsavel, valor, tipo, forma, observacao);
+        Pagamento pagamento = new Pagamento(this, responsavel, valor, forma, observacao);
         this.pagamentos.add(pagamento);
         return pagamento;
     }
 
-    public void estornarPagamento(Pagamento pagamento, String motivo) {
-        if (this.status == StatusEncomenda.ENTREGUE || this.status == StatusEncomenda.CANCELADO) {
-            throw new RegraNegocioException("Nao e possivel estornar pagamento de encomenda entregue ou cancelada.");
-        }
-        ValidacaoDominio.naoNulo(pagamento, "pagamento");
-        if (!this.pagamentos.contains(pagamento)) {
-            throw new RegraNegocioException("O pagamento informado nao pertence a esta encomenda.");
-        }
-        pagamento.estornar(motivo);
-    }
-
-    /**
-     * Trava 02: libera a encomenda para a fila de producao apenas apos sinal pago e materiais conferidos.
-     */
     public void liberarParaProducao() {
         if (this.status != StatusEncomenda.AGUARDANDO_SINAL_MATERIAL) {
-            throw new RegraNegocioException(
-                    "Somente encomendas aguardando sinal/material podem ser liberadas para producao."
-            );
+            throw new RegraNegocioException("Apenas encomendas aguardando sinal/material podem ir para producao.");
         }
         if (this.itens.isEmpty()) {
-            throw new RegraNegocioException("A encomenda deve possuir ao menos um item antes de ir para a producao.");
-        }
-        if (this.valorSinalExigido.compareTo(this.valorTotal) > 0) {
-            throw new RegraNegocioException("O valor do sinal exigido nao pode ser maior que o valor total da encomenda.");
+            throw new RegraNegocioException("A encomenda deve possuir ao menos um item.");
         }
         if (!sinalEstaPago()) {
-            throw new RegraNegocioException(
-                    "Trava 02: sinal minimo (" + valorSinalExigido + ") ainda nao foi quitado."
-            );
+            throw new RegraNegocioException("O pagamento do sinal minimo ainda nao foi confirmado.");
         }
-        if (!this.materiaisConferidos || !todosMateriaisComprados()) {
-            throw new RegraNegocioException(
-                    "Trava 02: materiais especiais precisam estar comprados e com checagem concluida."
-            );
+        if (!todosMateriaisComprados()) {
+            throw new RegraNegocioException("Existem materiais especiais ainda nao comprados.");
         }
         this.status = StatusEncomenda.EM_PRODUCAO;
-        this.dataLiberacaoProducao = LocalDateTime.now();
     }
 
-    /**
-     * Trava 03: apos o inicio da producao, mudancas nao sao editadas diretamente e exigem aprovacao da Producao.
-     */
     public SolicitacaoAlteracao solicitarAlteracao(
             String descricaoMudanca,
-            BigDecimal custoAdicionalEstimado,
-            Colaborador solicitante,
-            LocalDate dataSolicitacao
+            BigDecimal custoAdicional,
+            Colaborador solicitante
     ) {
         if (this.status != StatusEncomenda.EM_PRODUCAO) {
-            throw new RegraNegocioException(
-                    "Solicitacoes formais de alteracao aplicam-se a encomendas com status EM_PRODUCAO."
-            );
+            throw new RegraNegocioException("Solicitacoes de alteracao aplicam-se a encomendas em producao.");
         }
-        ValidacaoDominio.naoNulo(solicitante, "solicitante");
-        if (!solicitante.isAtivo()) {
-            throw new RegraNegocioException("Colaborador solicitante precisa estar ativo.");
-        }
-        ValidacaoDominio.naoNulo(dataSolicitacao, "dataSolicitacao");
-
-        long diasAteEntrega = ChronoUnit.DAYS.between(dataSolicitacao, this.dataPrazoPrometido);
-        boolean dentroDoPrazoSemCusto = diasAteEntrega >= this.prazoAlteracaoSemCustoDias;
-
-        SolicitacaoAlteracao solicitacao = new SolicitacaoAlteracao(
-                this,
-                solicitante,
-                descricaoMudanca,
-                custoAdicionalEstimado,
-                dentroDoPrazoSemCusto
-        );
+        SolicitacaoAlteracao solicitacao = new SolicitacaoAlteracao(this, solicitante, descricaoMudanca, custoAdicional);
         this.solicitacoesAlteracao.add(solicitacao);
         return solicitacao;
     }
 
-    public void aprovarSolicitacaoAlteracao(
+    public void aprovarAlteracao(
             SolicitacaoAlteracao solicitacao,
-            Colaborador avaliadorProducao,
+            Colaborador avaliador,
             BigDecimal custoExtraConfirmado,
-            String observacao
+            String motivo
     ) {
-        ValidacaoDominio.naoNulo(solicitacao, "solicitacao");
         if (!this.solicitacoesAlteracao.contains(solicitacao)) {
-            throw new RegraNegocioException("A solicitacao informada nao pertence a esta encomenda.");
+            throw new RegraNegocioException("Solicitacao de alteracao nao pertence a esta encomenda.");
         }
-        solicitacao.aprovar(avaliadorProducao, custoExtraConfirmado, observacao);
+        solicitacao.aprovar(avaliador, custoExtraConfirmado, motivo);
         recalcularValorTotal();
     }
 
-    public void recusarSolicitacaoAlteracao(
-            SolicitacaoAlteracao solicitacao,
-            Colaborador avaliadorProducao,
-            String motivo
-    ) {
-        ValidacaoDominio.naoNulo(solicitacao, "solicitacao");
+    public void recusarAlteracao(SolicitacaoAlteracao solicitacao, Colaborador avaliador, String motivo) {
         if (!this.solicitacoesAlteracao.contains(solicitacao)) {
-            throw new RegraNegocioException("A solicitacao informada nao pertence a esta encomenda.");
+            throw new RegraNegocioException("Solicitacao de alteracao nao pertence a esta encomenda.");
         }
-        solicitacao.recusar(avaliadorProducao, motivo);
+        solicitacao.recusar(avaliador, motivo);
     }
 
     public void marcarComoPronto() {
         if (this.status != StatusEncomenda.EM_PRODUCAO) {
-            throw new RegraNegocioException("Somente encomendas EM_PRODUCAO podem ser marcadas como prontas.");
+            throw new RegraNegocioException("Apenas encomendas em producao podem ser marcadas como prontas.");
         }
-        boolean existePendenciaAlteracao = this.solicitacoesAlteracao.stream().anyMatch(SolicitacaoAlteracao::isPendente);
-        if (existePendenciaAlteracao) {
-            throw new RegraNegocioException(
-                    "Existem solicitacoes de alteracao pendentes de resposta da Producao antes de concluir."
-            );
+        boolean existeAlteracaoPendente = this.solicitacoesAlteracao.stream().anyMatch(SolicitacaoAlteracao::isPendente);
+        if (existeAlteracaoPendente) {
+            throw new RegraNegocioException("Ha solicitacoes de alteracao pendentes de resposta da producao.");
         }
         this.status = StatusEncomenda.PRONTO;
-        this.dataConclusaoProducao = LocalDateTime.now();
     }
 
-    /**
-     * Trava 04: bloqueia a conclusao da entrega enquanto houver saldo pendente a receber.
-     */
-    public void concluirEntrega(Colaborador responsavelEntrega) {
+    public void concluirEntrega() {
         if (this.status != StatusEncomenda.PRONTO) {
-            throw new RegraNegocioException("Somente encomendas com status PRONTO podem ser entregues.");
+            throw new RegraNegocioException("Apenas encomendas prontas podem ser entregues.");
         }
-        BigDecimal saldo = calcularSaldoAReceber();
-        if (saldo.compareTo(BigDecimal.ZERO) > 0) {
-            throw new RegraNegocioException(
-                    "Trava 04: entrega bloqueada pois ainda ha saldo pendente de " + formatarMoeda(saldo) + "."
-            );
+        if (calcularSaldoAReceber().compareTo(BigDecimal.ZERO) > 0) {
+            throw new RegraNegocioException("Entrega bloqueada: ha saldo pendente de pagamento.");
         }
-        this.entrega.registrarConclusao(responsavelEntrega);
         this.status = StatusEncomenda.ENTREGUE;
+        this.dataEntregaRealizada = LocalDateTime.now();
     }
 
     public void cancelar(String motivo) {
         if (this.status == StatusEncomenda.ENTREGUE || this.status == StatusEncomenda.CANCELADO) {
             throw new RegraNegocioException("Encomenda ja entregue ou cancelada nao pode ser cancelada.");
         }
-        String motivoValidado = ValidacaoDominio.textoObrigatorio(motivo, "motivo");
+        if (motivo == null || motivo.isBlank()) {
+            throw new RegraNegocioException("O motivo do cancelamento e obrigatorio.");
+        }
         this.status = StatusEncomenda.CANCELADO;
-        this.observacoesGerais = (this.observacoesGerais == null || this.observacoesGerais.isBlank())
-                ? "Cancelada: " + motivoValidado
-                : this.observacoesGerais + " | Cancelada: " + motivoValidado;
-        this.agendaSemana.liberarVaga();
+        this.observacoes = (this.observacoes == null || this.observacoes.isBlank())
+                ? "Cancelada: " + motivo.trim()
+                : this.observacoes + " | Cancelada: " + motivo.trim();
     }
 
     public BigDecimal calcularTotalPago() {
         return pagamentos.stream()
-                .filter(Pagamento::isConfirmado)
                 .map(Pagamento::getValor)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
@@ -412,41 +297,7 @@ public class Encomenda {
     }
 
     public boolean todosMateriaisComprados() {
-        return materiaisEspeciais.stream().allMatch(ItemMaterialEncomenda::isComprado);
-    }
-
-    /**
-     * Gera resumo pronto para o atendente copiar e enviar ao cliente no WhatsApp.
-     */
-    public String gerarResumoWhatsApp() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("*Resumo do Pedido ").append(codigo).append("*\n");
-        sb.append("Cliente: ").append(cliente.getNome()).append("\n");
-        sb.append("Status: ").append(status.name()).append("\n");
-        sb.append("Prazo previsto: ").append(dataPrazoPrometido.format(FORMATO_DATA)).append("\n");
-        sb.append("Entrega: ").append(entrega.getTipo().name());
-        if (entrega.getTipo() == TipoEntrega.ENTREGA_DOMICILIO && entrega.getEnderecoEntrega() != null) {
-            sb.append(" (").append(entrega.getEnderecoEntrega()).append(")");
-        }
-        sb.append("\n\n*Itens:*\n");
-        for (ItemEncomenda item : itens) {
-            sb.append("- ").append(item.getQuantidade()).append("x ")
-                    .append(item.getProduto().getNome())
-                    .append(" (").append(item.getPersonalizacao()).append(") - ")
-                    .append(formatarMoeda(item.calcularSubtotal())).append("\n");
-        }
-        sb.append("\nValor Total: ").append(formatarMoeda(valorTotal)).append("\n");
-        sb.append("Total Pago: ").append(formatarMoeda(calcularTotalPago())).append("\n");
-        sb.append("Saldo a Receber: ").append(formatarMoeda(calcularSaldoAReceber()));
-        return sb.toString();
-    }
-
-    private void exigirEdicaoDiretaPermitida(String operacao) {
-        if (this.status != StatusEncomenda.AGUARDANDO_SINAL_MATERIAL) {
-            throw new RegraNegocioException(
-                    "Trava 03: nao e permitido " + operacao + " diretamente quando o status e " + this.status + "."
-            );
-        }
+        return materiais.stream().allMatch(MaterialEncomenda::isComprado);
     }
 
     private void recalcularValorTotal() {
@@ -454,16 +305,12 @@ public class Encomenda {
                 .map(ItemEncomenda::calcularSubtotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal totalAdicionaisAprovados = solicitacoesAlteracao.stream()
+        BigDecimal totalAdicionais = solicitacoesAlteracao.stream()
                 .filter(s -> s.getStatus() == StatusSolicitacaoAlteracao.APROVADA)
                 .map(SolicitacaoAlteracao::getCustoAdicional)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        this.valorTotal = totalItens.add(totalAdicionaisAprovados);
-    }
-
-    private String formatarMoeda(BigDecimal valor) {
-        return NumberFormat.getCurrencyInstance(LOCALE_PT_BR).format(valor);
+        this.valorTotal = totalItens.add(totalAdicionais);
     }
 
     public Long getId() {
@@ -482,16 +329,32 @@ public class Encomenda {
         return atendente;
     }
 
-    public AgendaSemana getAgendaSemana() {
-        return agendaSemana;
-    }
-
     public CanalOrigem getCanalOrigem() {
         return canalOrigem;
     }
 
     public StatusEncomenda getStatus() {
         return status;
+    }
+
+    public LocalDateTime getDataPedido() {
+        return dataPedido;
+    }
+
+    public LocalDate getDataPrazoEntrega() {
+        return dataPrazoEntrega;
+    }
+
+    public LocalDateTime getDataEntregaRealizada() {
+        return dataEntregaRealizada;
+    }
+
+    public TipoEntrega getTipoEntrega() {
+        return tipoEntrega;
+    }
+
+    public String getEnderecoEntrega() {
+        return enderecoEntrega;
     }
 
     public BigDecimal getValorTotal() {
@@ -502,40 +365,16 @@ public class Encomenda {
         return valorSinalExigido;
     }
 
-    public boolean isMateriaisConferidos() {
-        return materiaisConferidos;
-    }
-
-    public int getPrazoAlteracaoSemCustoDias() {
-        return prazoAlteracaoSemCustoDias;
-    }
-
-    public String getObservacoesGerais() {
-        return observacoesGerais;
-    }
-
-    public LocalDateTime getDataPedido() {
-        return dataPedido;
-    }
-
-    public LocalDate getDataPrazoPrometido() {
-        return dataPrazoPrometido;
-    }
-
-    public LocalDateTime getDataLiberacaoProducao() {
-        return dataLiberacaoProducao;
-    }
-
-    public LocalDateTime getDataConclusaoProducao() {
-        return dataConclusaoProducao;
+    public String getObservacoes() {
+        return observacoes;
     }
 
     public List<ItemEncomenda> getItens() {
         return Collections.unmodifiableList(itens);
     }
 
-    public List<ItemMaterialEncomenda> getMateriaisEspeciais() {
-        return Collections.unmodifiableList(materiaisEspeciais);
+    public List<MaterialEncomenda> getMateriais() {
+        return Collections.unmodifiableList(materiais);
     }
 
     public List<Pagamento> getPagamentos() {
@@ -544,10 +383,6 @@ public class Encomenda {
 
     public List<SolicitacaoAlteracao> getSolicitacoesAlteracao() {
         return Collections.unmodifiableList(solicitacoesAlteracao);
-    }
-
-    public Entrega getEntrega() {
-        return entrega;
     }
 
     @Override

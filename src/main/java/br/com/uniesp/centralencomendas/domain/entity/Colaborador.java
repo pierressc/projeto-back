@@ -1,6 +1,7 @@
 package br.com.uniesp.centralencomendas.domain.entity;
 
 import br.com.uniesp.centralencomendas.domain.enums.SetorColaborador;
+import br.com.uniesp.centralencomendas.domain.exception.RegraNegocioException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -12,9 +13,6 @@ import jakarta.persistence.Table;
 
 import java.util.Objects;
 
-/**
- * Representa um colaborador da equipe (atendimento, producao, administracao ou entrega).
- */
 @Entity
 @Table(name = "colaboradores")
 public class Colaborador {
@@ -40,19 +38,27 @@ public class Colaborador {
     }
 
     public Colaborador(String nome, String email, SetorColaborador setor) {
-        this.nome = ValidacaoDominio.textoObrigatorio(nome, "nome");
-        this.email = ValidacaoDominio.textoObrigatorio(email, "email");
-        this.setor = ValidacaoDominio.naoNulo(setor, "setor");
+        atualizarDados(nome, email);
+        alterarSetor(setor);
         this.ativo = true;
     }
 
     public void atualizarDados(String nome, String email) {
-        this.nome = ValidacaoDominio.textoObrigatorio(nome, "nome");
-        this.email = ValidacaoDominio.textoObrigatorio(email, "email");
+        if (nome == null || nome.isBlank()) {
+            throw new RegraNegocioException("O nome do colaborador e obrigatorio.");
+        }
+        if (email == null || email.isBlank()) {
+            throw new RegraNegocioException("O e-mail do colaborador e obrigatorio.");
+        }
+        this.nome = nome.trim();
+        this.email = email.trim();
     }
 
     public void alterarSetor(SetorColaborador novoSetor) {
-        this.setor = ValidacaoDominio.naoNulo(novoSetor, "novoSetor");
+        if (novoSetor == null) {
+            throw new RegraNegocioException("O setor do colaborador e obrigatorio.");
+        }
+        this.setor = novoSetor;
     }
 
     public void ativar() {
@@ -61,16 +67,6 @@ public class Colaborador {
 
     public void desativar() {
         this.ativo = false;
-    }
-
-    public boolean podeAprovarAlteracaoProducao() {
-        return ativo && (setor == SetorColaborador.PRODUCAO || setor == SetorColaborador.ADMINISTRACAO);
-    }
-
-    public boolean podeConcluirEntrega() {
-        return ativo && (setor == SetorColaborador.ENTREGA
-                || setor == SetorColaborador.ATENDIMENTO
-                || setor == SetorColaborador.ADMINISTRACAO);
     }
 
     public Long getId() {

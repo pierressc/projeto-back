@@ -18,9 +18,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-/**
- * Registro formal de pedido de mudanca apos a entrada da encomenda em producao (Trava 03).
- */
 @Entity
 @Table(name = "solicitacoes_alteracao")
 public class SolicitacaoAlteracao {
@@ -38,10 +35,10 @@ public class SolicitacaoAlteracao {
     private Colaborador solicitante;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "avaliador_producao_id")
-    private Colaborador avaliadorProducao;
+    @JoinColumn(name = "avaliador_id")
+    private Colaborador avaliador;
 
-    @Column(name = "descricao_mudanca", nullable = false, length = 600)
+    @Column(name = "descricao_mudanca", nullable = false, length = 500)
     private String descricaoMudanca;
 
     @Column(name = "custo_adicional", nullable = false, precision = 10, scale = 2)
@@ -51,16 +48,13 @@ public class SolicitacaoAlteracao {
     @Column(nullable = false, length = 20)
     private StatusSolicitacaoAlteracao status;
 
-    @Column(name = "dentro_do_prazo_sem_custo", nullable = false)
-    private boolean dentroDoPrazoSemCusto;
-
     @Column(name = "data_solicitacao", nullable = false, updatable = false)
     private LocalDateTime dataSolicitacao;
 
     @Column(name = "data_resposta")
     private LocalDateTime dataResposta;
 
-    @Column(name = "motivo_resposta", length = 500)
+    @Column(name = "motivo_resposta", length = 400)
     private String motivoResposta;
 
     protected SolicitacaoAlteracao() {
@@ -70,44 +64,54 @@ public class SolicitacaoAlteracao {
             Encomenda encomenda,
             Colaborador solicitante,
             String descricaoMudanca,
-            BigDecimal custoAdicional,
-            boolean dentroDoPrazoSemCusto
+            BigDecimal custoAdicional
     ) {
-        this.encomenda = ValidacaoDominio.naoNulo(encomenda, "encomenda");
-        this.solicitante = ValidacaoDominio.naoNulo(solicitante, "solicitante");
-        this.descricaoMudanca = ValidacaoDominio.textoObrigatorio(descricaoMudanca, "descricaoMudanca");
-        this.custoAdicional = ValidacaoDominio.valorNaoNegativo(custoAdicional, "custoAdicional");
-        this.dentroDoPrazoSemCusto = dentroDoPrazoSemCusto;
+        if (encomenda == null || solicitante == null) {
+            throw new RegraNegocioException("Encomenda e solicitante sao obrigatorios.");
+        }
+        if (descricaoMudanca == null || descricaoMudanca.isBlank()) {
+            throw new RegraNegocioException("A descricao da mudanca e obrigatoria.");
+        }
+        if (custoAdicional == null || custoAdicional.compareTo(BigDecimal.ZERO) < 0) {
+            throw new RegraNegocioException("O custo adicional nao pode ser negativo.");
+        }
+        this.encomenda = encomenda;
+        this.solicitante = solicitante;
+        this.descricaoMudanca = descricaoMudanca.trim();
+        this.custoAdicional = custoAdicional;
         this.status = StatusSolicitacaoAlteracao.PENDENTE;
         this.dataSolicitacao = LocalDateTime.now();
     }
 
     void aprovar(Colaborador avaliador, BigDecimal custoExtraConfirmado, String motivoResposta) {
-        validarDecisaoPendente(avaliador);
-        this.custoAdicional = ValidacaoDominio.valorNaoNegativo(custoExtraConfirmado, "custoExtraConfirmado");
-        this.avaliadorProducao = avaliador;
+        validarAvaliacao(avaliador);
+        if (custoExtraConfirmado == null || custoExtraConfirmado.compareTo(BigDecimal.ZERO) < 0) {
+            throw new RegraNegocioException("O custo adicional confirmado nao pode ser negativo.");
+        }
+        this.avaliador = avaliador;
+        this.custoAdicional = custoExtraConfirmado;
         this.status = StatusSolicitacaoAlteracao.APROVADA;
         this.dataResposta = LocalDateTime.now();
-        this.motivoResposta = ValidacaoDominio.textoOpcional(motivoResposta);
+        this.motivoResposta = motivoResposta == null ? null : motivoResposta.trim();
     }
 
     void recusar(Colaborador avaliador, String motivoResposta) {
-        validarDecisaoPendente(avaliador);
-        this.avaliadorProducao = avaliador;
+        validarAvaliacao(avaliador);
+        if (motivoResposta == null || motivoResposta.isBlank()) {
+            throw new RegraNegocioException("O motivo da recusa e obrigatorio.");
+        }
+        this.avaliador = avaliador;
         this.status = StatusSolicitacaoAlteracao.RECUSADA;
         this.dataResposta = LocalDateTime.now();
-        this.motivoResposta = ValidacaoDominio.textoObrigatorio(motivoResposta, "motivoResposta");
+        this.motivoResposta = motivoResposta.trim();
     }
 
-    private void validarDecisaoPendente(Colaborador avaliador) {
+    private void validarAvaliacao(Colaborador avaliador) {
         if (this.status != StatusSolicitacaoAlteracao.PENDENTE) {
-            throw new RegraNegocioException("A solicitacao de alteracao ja foi analisada anteriormente.");
+            throw new RegraNegocioException("Esta solicitacao de alteracao ja foi avaliada.");
         }
-        ValidacaoDominio.naoNulo(avaliador, "avaliador");
-        if (!avaliador.podeAprovarAlteracaoProducao()) {
-            throw new RegraNegocioException(
-                    "Apenas colaboradores ativos da Producao ou Administracao podem aprovar ou recusar alteracoes."
-            );
+        if (avaliador == null) {
+            throw new RegraNegocioException("O colaborador avaliador e obrigatorio.");
         }
     }
 
@@ -127,8 +131,8 @@ public class SolicitacaoAlteracao {
         return solicitante;
     }
 
-    public Colaborador getAvaliadorProducao() {
-        return avaliadorProducao;
+    public Colaborador getAvaliador() {
+        return avaliador;
     }
 
     public String getDescricaoMudanca() {
@@ -141,10 +145,6 @@ public class SolicitacaoAlteracao {
 
     public StatusSolicitacaoAlteracao getStatus() {
         return status;
-    }
-
-    public boolean isDentroDoPrazoSemCusto() {
-        return dentroDoPrazoSemCusto;
     }
 
     public LocalDateTime getDataSolicitacao() {

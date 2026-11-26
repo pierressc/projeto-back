@@ -1,5 +1,6 @@
 package br.com.uniesp.centralencomendas.domain.entity;
 
+import br.com.uniesp.centralencomendas.domain.exception.RegraNegocioException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -13,9 +14,6 @@ import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.util.Objects;
 
-/**
- * Item personalizado pertencente a uma encomenda especifica.
- */
 @Entity
 @Table(name = "itens_encomenda")
 public class ItemEncomenda {
@@ -28,9 +26,11 @@ public class ItemEncomenda {
     @JoinColumn(name = "encomenda_id", nullable = false)
     private Encomenda encomenda;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "produto_id", nullable = false)
-    private ProdutoCatalogo produto;
+    @Column(name = "descricao_produto", nullable = false, length = 150)
+    private String descricaoProduto;
+
+    @Column(nullable = false, length = 500)
+    private String personalizacao;
 
     @Column(nullable = false)
     private int quantidade;
@@ -38,24 +38,36 @@ public class ItemEncomenda {
     @Column(name = "valor_unitario", nullable = false, precision = 10, scale = 2)
     private BigDecimal valorUnitario;
 
-    @Column(nullable = false, length = 500)
-    private String personalizacao;
-
     protected ItemEncomenda() {
     }
 
-    ItemEncomenda(Encomenda encomenda, ProdutoCatalogo produto, int quantidade, BigDecimal valorUnitario, String personalizacao) {
-        this.encomenda = ValidacaoDominio.naoNulo(encomenda, "encomenda");
-        this.produto = ValidacaoDominio.naoNulo(produto, "produto");
-        this.quantidade = ValidacaoDominio.inteiroPositivo(quantidade, "quantidade");
-        this.valorUnitario = ValidacaoDominio.valorPositivo(valorUnitario, "valorUnitario");
-        this.personalizacao = ValidacaoDominio.textoObrigatorio(personalizacao, "personalizacao");
-    }
-
-    void atualizarDetalhes(int novaQuantidade, BigDecimal novoValorUnitario, String novaPersonalizacao) {
-        this.quantidade = ValidacaoDominio.inteiroPositivo(novaQuantidade, "novaQuantidade");
-        this.valorUnitario = ValidacaoDominio.valorPositivo(novoValorUnitario, "novoValorUnitario");
-        this.personalizacao = ValidacaoDominio.textoObrigatorio(novaPersonalizacao, "novaPersonalizacao");
+    ItemEncomenda(
+            Encomenda encomenda,
+            String descricaoProduto,
+            String personalizacao,
+            int quantidade,
+            BigDecimal valorUnitario
+    ) {
+        if (encomenda == null) {
+            throw new RegraNegocioException("A encomenda do item e obrigatoria.");
+        }
+        if (descricaoProduto == null || descricaoProduto.isBlank()) {
+            throw new RegraNegocioException("A descricao do produto e obrigatoria.");
+        }
+        if (personalizacao == null || personalizacao.isBlank()) {
+            throw new RegraNegocioException("Os detalhes de personalizacao sao obrigatorios.");
+        }
+        if (quantidade <= 0) {
+            throw new RegraNegocioException("A quantidade do item deve ser maior que zero.");
+        }
+        if (valorUnitario == null || valorUnitario.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RegraNegocioException("O valor unitario deve ser maior que zero.");
+        }
+        this.encomenda = encomenda;
+        this.descricaoProduto = descricaoProduto.trim();
+        this.personalizacao = personalizacao.trim();
+        this.quantidade = quantidade;
+        this.valorUnitario = valorUnitario;
     }
 
     public BigDecimal calcularSubtotal() {
@@ -70,8 +82,12 @@ public class ItemEncomenda {
         return encomenda;
     }
 
-    public ProdutoCatalogo getProduto() {
-        return produto;
+    public String getDescricaoProduto() {
+        return descricaoProduto;
+    }
+
+    public String getPersonalizacao() {
+        return personalizacao;
     }
 
     public int getQuantidade() {
@@ -80,10 +96,6 @@ public class ItemEncomenda {
 
     public BigDecimal getValorUnitario() {
         return valorUnitario;
-    }
-
-    public String getPersonalizacao() {
-        return personalizacao;
     }
 
     @Override
